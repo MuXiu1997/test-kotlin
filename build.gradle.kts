@@ -16,6 +16,9 @@ dependencies {
     implementation("org.apache.commons:commons-lang3:3.12.0")
     compileOnly("javax.validation:validation-api:2.0.1.Final")
     compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.0")
+    implementation("cn.hutool:hutool-all:5.7.18")
+    compileOnly("org.springframework:spring-core:5.3.6")
+    compileOnly("org.springframework:spring-context:5.3.6")
 }
 
 
