@@ -19,6 +19,7 @@ dependencies {
     implementation("cn.hutool:hutool-all:5.7.18")
     compileOnly("org.springframework:spring-core:5.3.6")
     compileOnly("org.springframework:spring-context:5.3.6")
+    compileOnly("com.baomidou:mybatis-plus:3.4.3")
 }
 
 
