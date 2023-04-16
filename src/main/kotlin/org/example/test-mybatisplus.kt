@@ -1,17 +1,30 @@
 package org.example
 
 import cn.hutool.core.util.ReflectUtil
+import cn.hutool.extra.spring.SpringUtil
 import com.baomidou.mybatisplus.core.conditions.SharedString
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper
 import com.baomidou.mybatisplus.core.conditions.segments.MergeSegments
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper
 import com.baomidou.mybatisplus.core.mapper.BaseMapper
 import com.baomidou.mybatisplus.core.metadata.IPage
+import com.baomidou.mybatisplus.core.toolkit.PluginUtils
 import com.baomidou.mybatisplus.extension.kotlin.AbstractKtWrapper
 import com.baomidou.mybatisplus.extension.kotlin.KtQueryWrapper
 import com.baomidou.mybatisplus.extension.kotlin.KtUpdateWrapper
+import com.baomidou.mybatisplus.extension.plugins.inner.InnerInterceptor
+import org.apache.ibatis.executor.Executor
+import org.apache.ibatis.executor.statement.StatementHandler
+import org.apache.ibatis.mapping.BoundSql
+import org.apache.ibatis.mapping.MappedStatement
+import org.apache.ibatis.session.ResultHandler
+import org.apache.ibatis.session.RowBounds
+import org.springframework.context.expression.BeanFactoryResolver
+import org.springframework.expression.ParserContext
+import org.springframework.expression.spel.support.StandardEvaluationContext
 import org.springframework.util.ReflectionUtils
 import java.lang.reflect.Constructor
+import java.sql.Connection
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.reflect.KProperty
@@ -149,3 +162,40 @@ fun <T : Any> KtUpdateWrapper<T>.baseWrapper(): UpdateWrapper<T> {
     ) as UpdateWrapper<T>
 }
 
+
+class SpelExpInterceptor(private val parserContext: ParserContext) : InnerInterceptor {
+    constructor() : this(defaultParserContext)
+
+    override fun beforeQuery(
+        executor: Executor?,
+        ms: MappedStatement?,
+        parameter: Any?,
+        rowBounds: RowBounds?,
+        resultHandler: ResultHandler<*>?,
+        boundSql: BoundSql?,
+    ) {
+        val mpBs = PluginUtils.mpBoundSql(boundSql)
+        evaluateSpELInBoundSql(mpBs)
+    }
+
+    override fun beforePrepare(sh: StatementHandler?, connection: Connection?, transactionTimeout: Int?) {
+        val mpSh = PluginUtils.mpStatementHandler(sh)
+        val mpBs = mpSh.mPBoundSql()
+        evaluateSpELInBoundSql(mpBs)
+    }
+
+    private fun evaluateSpELInBoundSql(mpBs: PluginUtils.MPBoundSql) {
+        val sql = mpBs.sql()
+        val context = StandardEvaluationContext()
+        context.beanResolver = BeanFactoryResolver(SpringUtil.getBeanFactory())
+        mpBs.sql(parser.parseExpression(sql, parserContext).getValue(context) as String)
+    }
+
+    companion object {
+        private val defaultParserContext: ParserContext = object : ParserContext {
+            override fun isTemplate(): Boolean = true
+            override fun getExpressionPrefix(): String = "{{- "
+            override fun getExpressionSuffix(): String = " -}}"
+        }
+    }
+}
